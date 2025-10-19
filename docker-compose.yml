@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # Наше Go-приложение
+  app:
+    build: . # Собираем из Dockerfile в текущей папке
+    container_name: zaman_ai_app
+    ports:
+      - "8000:8000" # Проброс порта 8080 наружу
+    env_file:
+      - .env # Берем все переменные из .env файла
+    depends_on:
+      db:
+        condition: service_healthy # Ждем, пока БД будет готова
+    restart: unless-stopped
+
+  # База данных PostgreSQL с pgvector
+  db:
+    image: ankane/pgvector # Готовый образ с pgvector
+    container_name: zaman_ai_db
+    ports:
+      - "5433:5432" # Проброс порта 5432 (Postgres) на 5433 (наш хост)
+    environment:
+      POSTGRES_USER: zaman_user
+      POSTGRES_PASSWORD: zaman_pass
+      POSTGRES_DB: zaman_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Сохраняем данные БД
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql # Скрипт инициализации
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zaman_user -d zaman_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
